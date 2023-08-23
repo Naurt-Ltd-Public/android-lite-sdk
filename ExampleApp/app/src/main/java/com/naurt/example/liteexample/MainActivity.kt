@@ -63,7 +63,7 @@ class MainActivity : AppCompatActivity() {
             newMetadata.put("example_app", "true")
             newMetadata.put("refresh_time", System.currentTimeMillis())
 
-            this.naurtLite?.updateMetadata(newMetadata)
+            this.naurtLite?.newDestination(newMetadata)
 
         }
 

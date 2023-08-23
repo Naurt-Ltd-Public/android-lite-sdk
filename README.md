@@ -12,7 +12,7 @@ If you're interested in automatically detecting building entrances and parking s
 
 <br>
 
-Naurt Lite is a silent data collection SDK which accepts user metadata in JSON format, matches it with the current location data, and uploads it to Naurt's servers to process it into building entrance and parking spot data that can be accessed through our POI API. Before you begin, ensure you have a valid API key. If you don't, no worries. You can sign up for a free account on our [dashboard](https://dashboard.naurt.net/).
+Naurt Lite is a silent data collection SDK which accepts user data about a destination in JSON format, matches it with the current location data, and uploads it to Naurt's servers to process it into building entrance and parking spot locations that can be accessed through our POI API. Before you begin, ensure you have a valid API key. If you don't, no worries. You can sign up for a free account and key on our [dashboard](https://dashboard.naurt.net/).
 
 <br>
 
@@ -61,6 +61,54 @@ As Naurt accesses the phone's Network and GPS location services, you'll need to 
     <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+**You will also need the user to grant location permissions before starting Naurt.** If you do not already have this logic in your application, you can use the following example to check for the granted permission and only initialise Naurt if it has been granted.
+
+```
+private val LOCATION_PERMISSION_REQUEST_CODE = 1001
+
+if (!this.hasLocationPermission()) {
+    this.requestLocationPermission()
+} else{
+    // Start Naurt!
+}
+
+
+// Check if the app has permission to access location
+private fun hasLocationPermission(): Boolean {
+    val permissionStatus = ContextCompat.checkSelfPermission(
+        this,
+        ACCESS_FINE_LOCATION
+    )
+    return permissionStatus == PackageManager.PERMISSION_GRANTED
+}
+
+// Request location permission from the user
+private fun requestLocationPermission() {
+    ActivityCompat.requestPermissions(
+        this, arrayOf(ACCESS_FINE_LOCATION),
+        LOCATION_PERMISSION_REQUEST_CODE
+    )
+}
+
+// Handle the result of the permission request
+override fun onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<out String>,
+    grantResults: IntArray
+) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            Log.d("Naurt", "I have the permissions!")
+            // Start Naurt
+        } else {
+            Log.d("Naurt", "I haven't got the permissions!")
+            // Don't start Naurt
+        }
+    }
+}
+```
+
 <br>
 
 ### Instantiating Naurt
@@ -99,9 +147,9 @@ naurtLite.onDestroy()
 <br>
 
 ## Example Application
-We also have an example application which strings together the above concepts into a full app.
+We also have an example application which combines the above concepts into a full app.
 
-It can be found on [our GitHub here](https://github.com/Naurt-Ltd-Public/naurt-android-sdk-lite).
+It can be found on [our GitHub here](https://github.com/Naurt-Ltd-Public/android-lite-sdk).
 
 
 ---
@@ -132,7 +180,7 @@ val isMyApiKeyValidated = naurtLite.getIsValidated()
 when(isMyApiKeyValidated) {
     NaurtValidationStatus.Valid -> Log.d("Naurt", "API key is valid.")
     NaurtValidationStatus.ValidNoDataTransfer -> Log.d("Naurt", "API key is valid, but no data is to be uploaded.")
-    NaurtValidationStatus.Invalid -> Log.d("Naurt", "API key is invalid. GPS being passed through.")
+    NaurtValidationStatus.Invalid -> Log.d("Naurt", "API key is invalid. Naurt Will not create parking and door POIs.")
     NaurtValidationStatus.NotYetValidated -> Log.d("Naurt", "Naurt is currently attempting to validate.")
 }
 ```
@@ -149,9 +197,9 @@ when(isMyApiKeyValidated) {
 
 <br>
 
-Naurt collects anonymised location data from the SDK which enables us to create automatic Points of Interest, currently in the form of building entrances and parking spots. We achieve this through the collection of "metadata" which helps us link useful data, such as the current delivery address, to events that we detect on the phone, such as the user entering a building.
+Naurt collects anonymised location data from the SDK which enables us to create automatic Points of Interest, currently in the form of building entrances and parking spots. We achieve this through the collection of data about the destination helping us link useful data, such as the current delivery address, to events that we detect on the phone, such as the user entering a building.
 
-When you instantiate NaurtLite, you have the ability to provide metadata as an optional **JSONObject**. If you don't have metadata quite yet, that's fine. Later down the line if you wish to add metadata or update the current metadata, you can use the method [updateMetadata](#updatemetadata). This again takes an optional **JSONObject**. If the metadata is null, this will remove any previous metadata and there will be no metadata associated with the subsequent location fixes.
+When you instantiate NaurtLite, you have the ability to provide data about your destination as an optional **JSONObject**. If you don't have any data about the destination quite yet, that's fine. Later down the line if you wish to add data or update the current data, you can use the method [newDestination](#newDestination). This again takes an optional **JSONObject**. If it is null, this will remove any previous data and there will be no data associated with the subsequent location fixes and destination.
 
 ```kotlin
 import org.json.JSONObject
@@ -159,22 +207,22 @@ import com.naurt.sdk.NaurtLite
 import com.naurt.sdk.enums.NaurtEngineType
 
 
-val originalMeta = JSONObject() 
-originalMeta.put("address", "main road")
+val originalDestination = JSONObject() 
+originalDestination.put("address", "main road")
 
 
 val naurtLite = NaurtLite(
     "<YOUR NAURT API KEY HERE>",
     applicationContext as Context,
-    metadata = originalMeta
+    destinationData = originalDestination
 )
 
 
-val updatedMeta = JSONObject() 
-updatedMeta.put("address", "london road")
+val updatedDestination = JSONObject() 
+updatedDestination.put("address", "london road")
 
 
-naurtLocationManager.updateMetadata(updatedMeta)
+naurtLite.newDestination(updatedDestination)
 ```
 
 
@@ -194,12 +242,11 @@ naurtLocationManager.updateMetadata(updatedMeta)
 </div>
 
 
-Points of interest which have been created are then accessible via [Naurt's POI API](/poi-api) and can be searched via the metadata provided or spatially filtered. 
+Points of interest which have been created are then accessible via [Naurt's POI API](/poi-api) and can be searched via the data provided or spatially filtered. 
 
 Naurt Lite offers an easy to use wrapper for this API which will be described in the next section, though it's still worth familiarising yourself with the [POI API documentation](/poi-api) first.
 
-
-Metadata can be used in many different scenarios and increase the value Naurt brings to your company. If you're still unsure about how metadata could play a part in your use case, contact our [sales team](https://www.naurt.com/#email-form-first-one) to have a chat.
+Naurt's POI system can be used in many different scenarios and increase the value Naurt brings to your company. If you're still unsure about how the POI system could play a part in your use case, contact our [sales team](https://www.naurt.com/contact-us) to have a chat.
 
 ---
 
